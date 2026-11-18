@@ -319,6 +319,69 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     setContent(next);
   };
 
+  const [translating, setTranslating] = useState(false);
+
+  /** Fills the other language of the current tab with a Gemini translation (unsaved until “Сохранить”). */
+  const translateTab = async (from: 'ru' | 'kg') => {
+    if (!content) return;
+    const to = from === 'ru' ? 'kg' : 'ru';
+    const toName = to === 'ru' ? 'русском' : 'кыргызском';
+    if (!window.confirm(`Тексты на ${toName} в этом разделе будут заменены переводом. Продолжить?`)) return;
+
+    const call = async <T,>(value: unknown): Promise<T> =>
+      (
+        await api<{ value: T }>('/api/admin/translate', token, {
+          method: 'POST',
+          body: JSON.stringify({ from, value }),
+        })
+      ).value;
+
+    setTranslating(true);
+    setStatus(null);
+    try {
+      if (tab === 'ru' || tab === 'kg') {
+        const ui = await call<SiteContent['ui']['ru']>(content.ui[from]);
+        setContent({ ...content, ui: { ...content.ui, [to]: ui } });
+      } else if (tab === 'cases' || tab === 'services') {
+        const items = content[tab] as unknown as Array<Record<string, unknown>>;
+        const translated = await call<unknown[]>(items.map((item) => item[from]));
+        setContent({ ...content, [tab]: items.map((item, i) => ({ ...item, [to]: translated[i] })) });
+      } else if (tab === 'tools') {
+        const fromKey = from === 'ru' ? 'ruRole' : 'kgRole';
+        const toKey = from === 'ru' ? 'kgRole' : 'ruRole';
+        const res = await call<{ ai: string[]; vibe: string[] }>({
+          ai: content.aiTools.map((t) => t[fromKey]),
+          vibe: content.vibeTools.map((t) => t[fromKey]),
+        });
+        setContent({
+          ...content,
+          aiTools: content.aiTools.map((t, i) => ({ ...t, [toKey]: res.ai[i] })),
+          vibeTools: content.vibeTools.map((t, i) => ({ ...t, [toKey]: res.vibe[i] })),
+        });
+      } else if (tab === 'reviews') {
+        const fromKey = from === 'ru' ? 'textRu' : 'textKg';
+        const toKey = from === 'ru' ? 'textKg' : 'textRu';
+        const res = await call<string[]>(reviews.map((r) => r[fromKey]));
+        setReviews(reviews.map((r, i) => ({ ...r, [toKey]: res[i] })));
+      }
+      setStatus({ kind: 'ok', text: 'Переведено. Проверьте текст и нажмите «Сохранить».' });
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) {
+        onLogout();
+        return;
+      }
+      const msg = err instanceof Error ? err.message : '';
+      setStatus({
+        kind: 'error',
+        text: msg.includes('GEMINI_API_KEY')
+          ? 'Перевод не настроен: добавьте GEMINI_API_KEY в настройках Vercel и сделайте Redeploy.'
+          : `Не удалось перевести: ${msg || 'ошибка'}`,
+      });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const deleteLead = async (id: string) => {
     if (!window.confirm('Удалить заявку?')) return;
     const next = leads.filter((l) => l.id !== id);
@@ -339,6 +402,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
 
   const current = TABS.find((t) => t.id === tab)!;
   const editable = tab !== 'reviews' && tab !== 'leads';
+  const translatable = ['ru', 'kg', 'cases', 'services', 'tools', 'reviews'].includes(tab);
 
   return (
     <div className="min-h-screen bg-[#0A0A0C] text-white">
@@ -420,15 +484,39 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               <h1 className="font-display text-xl font-bold">{current.label}</h1>
               <p className="mt-1 text-sm text-white/55">{current.hint}</p>
             </div>
-            {editable && (
-              <button
-                type="button"
-                onClick={resetSection}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white"
-              >
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Вернуть исходное
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {translatable && (
+                <>
+                  <button
+                    type="button"
+                    disabled={translating}
+                    onClick={() => translateTab('ru')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#00F0C8]/30 bg-[#00F0C8]/10 px-3 py-1.5 text-xs font-semibold text-[#7FFFE6] hover:bg-[#00F0C8]/20 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+                    {translating ? 'Перевод…' : 'RU → КЫР'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={translating}
+                    onClick={() => translateTab('kg')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#00F0C8]/30 bg-[#00F0C8]/10 px-3 py-1.5 text-xs font-semibold text-[#7FFFE6] hover:bg-[#00F0C8]/20 disabled:opacity-50"
+                  >
+                    <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+                    {translating ? 'Перевод…' : 'КЫР → RU'}
+                  </button>
+                </>
+              )}
+              {editable && (
+                <button
+                  type="button"
+                  onClick={resetSection}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Вернуть исходное
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bento-surface rounded-2xl p-5 sm:p-6">

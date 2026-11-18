@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { isAllowedImageType, readJSON, saveImage, storageMode, writeJSON } from './storage.ts';
+import { bilingualText, translateJson, translationEnabled, type Lang } from './translate.ts';
 
 const ANALYTICS_FILE = '/tmp/doolot_portfolio_analytics.json';
 
@@ -194,7 +195,7 @@ export function createApp(): Express {
   app.use(express.json({ limit: '4mb' }));
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'doolot-portfolio', storage: storageMode() });
+    res.json({ ok: true, service: 'doolot-portfolio', storage: storageMode(), translation: translationEnabled() });
   });
 
   // ---------- Public content ----------
@@ -235,14 +236,24 @@ export function createApp(): Express {
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+      // Show the review in both site languages; fall back to the original text if Gemini is unavailable.
+      let texts = { ru: text, kg: text };
+      if (translationEnabled()) {
+        try {
+          texts = await bilingualText(text);
+        } catch (err) {
+          console.error('Review translation failed', err);
+        }
+      }
+
       const newReview: ReviewItem = {
         id: `rev-${Date.now()}`,
         name,
         role: role || (lang === 'kg' ? 'Кардар' : 'Клиент'),
         company: company || (lang === 'kg' ? 'Жеке долбоор' : 'Частный проект'),
         rating,
-        textRu: text,
-        textKg: text,
+        textRu: texts.ru,
+        textKg: texts.kg,
         date: dateStr,
         lang,
       };
@@ -309,6 +320,26 @@ export function createApp(): Express {
   });
 
   // ---------- Admin ----------
+  app.post(
+    '/api/admin/translate',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const from: Lang = req.body?.from === 'kg' ? 'kg' : 'ru';
+      const to: Lang = from === 'ru' ? 'kg' : 'ru';
+      const value = req.body?.value;
+      if (value === undefined) {
+        res.status(400).json({ error: 'value is required' });
+        return;
+      }
+      try {
+        res.json({ value: await translateJson(value, from, to) });
+      } catch (err) {
+        const status = (err as { status?: number }).status ?? 502;
+        res.status(status).json({ error: err instanceof Error ? err.message : 'Translation failed' });
+      }
+    }),
+  );
+
   app.post(
     '/api/admin/login',
     wrap(async (req, res) => {

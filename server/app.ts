@@ -120,18 +120,63 @@ function passwordMatches(candidate: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+// ---- Brute-force protection: per-IP lockout after repeated wrong passwords ----
+const MAX_FAILURES = 5;
+const LOCK_WINDOW_MS = 15 * 60 * 1000;
+const failures = new Map<string, { count: number; first: number }>();
+
+function clientIp(req: Request): string {
+  const fwd = req.headers['x-forwarded-for'];
+  const first = (Array.isArray(fwd) ? fwd[0] : fwd ?? '').split(',')[0].trim();
+  return first || req.socket.remoteAddress || 'unknown';
+}
+
+function isLocked(ip: string): boolean {
+  const entry = failures.get(ip);
+  if (!entry) return false;
+  if (Date.now() - entry.first > LOCK_WINDOW_MS) {
+    failures.delete(ip);
+    return false;
+  }
+  return entry.count >= MAX_FAILURES;
+}
+
+function noteFailure(ip: string): void {
+  const entry = failures.get(ip);
+  if (!entry || Date.now() - entry.first > LOCK_WINDOW_MS) {
+    failures.set(ip, { count: 1, first: Date.now() });
+  } else {
+    entry.count += 1;
+  }
+}
+
+/** Checks the password with lockout + a delay on failure. Sends the error response itself when it fails. */
+async function checkPassword(req: Request, res: Response, candidate: string): Promise<boolean> {
   if (!process.env.ADMIN_PASSWORD) {
     res.status(503).json({ error: 'ADMIN_PASSWORD is not configured on the server' });
-    return;
+    return false;
   }
+  const ip = clientIp(req);
+  if (isLocked(ip)) {
+    res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
+    return false;
+  }
+  if (!passwordMatches(candidate)) {
+    noteFailure(ip);
+    await new Promise((r) => setTimeout(r, 1000));
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+  failures.delete(ip);
+  return true;
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!passwordMatches(token)) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-  next();
+  checkPassword(req, res, token).then((ok) => {
+    if (ok) next();
+  });
 }
 
 /** Wraps async handlers so storage errors become JSON 500s instead of hanging requests. */
@@ -264,17 +309,13 @@ export function createApp(): Express {
   });
 
   // ---------- Admin ----------
-  app.post('/api/admin/login', (req, res) => {
-    if (!process.env.ADMIN_PASSWORD) {
-      res.status(503).json({ error: 'ADMIN_PASSWORD is not configured on the server' });
-      return;
-    }
-    if (!passwordMatches(str(req.body?.password, 200))) {
-      res.status(401).json({ error: 'Wrong password' });
-      return;
-    }
-    res.json({ ok: true, storage: storageMode() });
-  });
+  app.post(
+    '/api/admin/login',
+    wrap(async (req, res) => {
+      if (!(await checkPassword(req, res, str(req.body?.password, 200)))) return;
+      res.json({ ok: true, storage: storageMode() });
+    }),
+  );
 
   app.put(
     '/api/admin/content',

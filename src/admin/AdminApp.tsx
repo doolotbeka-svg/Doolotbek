@@ -170,7 +170,9 @@ function Login({ onSuccess }: { onSuccess: (password: string) => void }) {
       setError(
         status === 503
           ? 'На сервере не задан пароль. Добавьте переменную ADMIN_PASSWORD в настройках Vercel и сделайте Redeploy.'
-          : 'Неверный пароль',
+          : status === 429
+            ? 'Слишком много попыток. Попробуйте через 15 минут.'
+            : 'Неверный пароль',
       );
     } finally {
       setBusy(false);

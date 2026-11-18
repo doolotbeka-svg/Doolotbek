@@ -1,0 +1,6 @@
+{
+  "name": "Arsen Amanov — AI Creator & Vibe Coder",
+  "description": "Портфолио AI-креатора и вайб-кодера из Кыргызстана: генеративное видео, визуал будущего, быстрые MVP и ИИ-автоматизация на русском и кыргызском языках.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

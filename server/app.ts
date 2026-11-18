@@ -1,8 +1,9 @@
-import express, { type Express } from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { isAllowedImageType, readJSON, saveImage, storageMode, writeJSON } from './storage.ts';
 
-const REVIEWS_FILE = '/tmp/arsen_portfolio_reviews.json';
-const ANALYTICS_FILE = '/tmp/arsen_portfolio_analytics.json';
+const ANALYTICS_FILE = '/tmp/doolot_portfolio_analytics.json';
 
 interface ReviewItem {
   id: string;
@@ -14,6 +15,16 @@ interface ReviewItem {
   textKg: string;
   date: string;
   lang: 'ru' | 'kg';
+}
+
+interface LeadItem {
+  id: string;
+  name: string;
+  contact: string;
+  service: string;
+  message: string;
+  lang: 'ru' | 'kg';
+  createdAt: string;
 }
 
 interface AnalyticsEvent {
@@ -42,8 +53,8 @@ const DEFAULT_REVIEWS: ReviewItem[] = [
     role: 'Product Lead',
     company: 'KyrgyzPay Studio',
     rating: 5,
-    textRu: 'Нужен был интерактивный MVP личного кабинета для питча инвесторам. Арсен собрал готовый продукт на React и Tailwind за 72 часа — с плавной анимацией и чистой архитектурой.',
-    textKg: 'Инвесторлорго көрсөтүү үчүн жеке кабинеттин интерактивдүү MVPси керек эле. Арсен React жана Tailwind негизиндеги даяр продуктуну 72 саатта жасап берди — анимациясы жылмакай, архитектурасы таза.',
+    textRu: 'Нужен был интерактивный MVP личного кабинета для питча инвесторам. Доолот собрал готовый продукт на React и Tailwind за 72 часа — с плавной анимацией и чистой архитектурой.',
+    textKg: 'Инвесторлорго көрсөтүү үчүн жеке кабинеттин интерактивдүү MVPси керек эле. Доолот React жана Tailwind негизиндеги даяр продуктуну 72 саатта жасап берди — анимациясы жылмакай, архитектурасы таза.',
     date: '2026-09',
     lang: 'ru',
   },
@@ -60,39 +71,21 @@ const DEFAULT_REVIEWS: ReviewItem[] = [
   },
 ];
 
-function loadReviews(): ReviewItem[] {
-  try {
-    if (fs.existsSync(REVIEWS_FILE)) {
-      const raw = fs.readFileSync(REVIEWS_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch {
-    // fallback to defaults
-  }
-  return [...DEFAULT_REVIEWS];
+async function loadReviews(): Promise<ReviewItem[]> {
+  const saved = await readJSON<ReviewItem[]>('reviews');
+  return Array.isArray(saved) ? saved : [...DEFAULT_REVIEWS];
 }
 
-function saveReviews(reviews: ReviewItem[]): void {
-  try {
-    fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2), 'utf-8');
-  } catch {
-    // ignore ephemeral fs write issues
-  }
+async function loadLeads(): Promise<LeadItem[]> {
+  const saved = await readJSON<LeadItem[]>('leads');
+  return Array.isArray(saved) ? saved : [];
 }
-
-let reviewsStore: ReviewItem[] = loadReviews();
 
 function loadAnalytics(): AnalyticsEvent[] {
   try {
     if (fs.existsSync(ANALYTICS_FILE)) {
-      const raw = fs.readFileSync(ANALYTICS_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
+      const parsed = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf-8'));
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {
     // ignore
@@ -114,108 +107,251 @@ function recordEvent(evt: AnalyticsEvent): void {
   }
 }
 
+function str(v: unknown, max: number): string {
+  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+/** Constant-time password check against ADMIN_PASSWORD. */
+function passwordMatches(candidate: string): boolean {
+  const expected = process.env.ADMIN_PASSWORD ?? '';
+  if (!expected || !candidate) return false;
+  const a = crypto.createHash('sha256').update(candidate).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!process.env.ADMIN_PASSWORD) {
+    res.status(503).json({ error: 'ADMIN_PASSWORD is not configured on the server' });
+    return;
+  }
+  const header = req.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!passwordMatches(token)) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+}
+
+/** Wraps async handlers so storage errors become JSON 500s instead of hanging requests. */
+const wrap =
+  (fn: (req: Request, res: Response) => Promise<void>) =>
+  (req: Request, res: Response) => {
+    fn(req, res).catch((err: unknown) => {
+      console.error(err);
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Server error' });
+    });
+  };
+
 export function createApp(): Express {
   const app = express();
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '4mb' }));
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'arsen-portfolio' });
+    res.json({ ok: true, service: 'doolot-portfolio', storage: storageMode() });
   });
 
-  app.get('/api/reviews', (_req, res) => {
-    res.json({ reviews: reviewsStore });
-  });
+  // ---------- Public content ----------
+  app.get(
+    '/api/content',
+    wrap(async (_req, res) => {
+      const content = await readJSON<unknown>('content');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ content });
+    }),
+  );
 
-  app.post('/api/reviews', (req, res) => {
-    const body = req.body ?? {};
-    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) : '';
-    const role = typeof body.role === 'string' ? body.role.trim().slice(0, 80) : '';
-    const company = typeof body.company === 'string' ? body.company.trim().slice(0, 80) : '';
-    const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : '';
-    const ratingRaw = Number(body.rating);
-    const rating = Number.isFinite(ratingRaw) ? Math.min(5, Math.max(1, Math.round(ratingRaw))) : 5;
-    const lang: 'ru' | 'kg' = body.lang === 'kg' ? 'kg' : 'ru';
+  app.get(
+    '/api/reviews',
+    wrap(async (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ reviews: await loadReviews() });
+    }),
+  );
 
-    if (!name || !text || text.length < 10) {
-      res.status(400).json({ error: 'Invalid review payload' });
-      return;
-    }
+  app.post(
+    '/api/reviews',
+    wrap(async (req, res) => {
+      const body = req.body ?? {};
+      const name = str(body.name, 80);
+      const role = str(body.role, 80);
+      const company = str(body.company, 80);
+      const text = str(body.text, 600);
+      const ratingRaw = Number(body.rating);
+      const rating = Number.isFinite(ratingRaw) ? Math.min(5, Math.max(1, Math.round(ratingRaw))) : 5;
+      const lang: 'ru' | 'kg' = body.lang === 'kg' ? 'kg' : 'ru';
 
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      if (!name || !text || text.length < 10) {
+        res.status(400).json({ error: 'Invalid review payload' });
+        return;
+      }
 
-    const newReview: ReviewItem = {
-      id: `rev-${Date.now()}`,
-      name,
-      role: role || (lang === 'kg' ? 'Кардар' : 'Клиент'),
-      company: company || (lang === 'kg' ? 'Жеке долбоор' : 'Частный проект'),
-      rating,
-      textRu: text,
-      textKg: text,
-      date: dateStr,
-      lang,
-    };
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    reviewsStore = [newReview, ...reviewsStore].slice(0, 24);
-    saveReviews(reviewsStore);
+      const newReview: ReviewItem = {
+        id: `rev-${Date.now()}`,
+        name,
+        role: role || (lang === 'kg' ? 'Кардар' : 'Клиент'),
+        company: company || (lang === 'kg' ? 'Жеке долбоор' : 'Частный проект'),
+        rating,
+        textRu: text,
+        textKg: text,
+        date: dateStr,
+        lang,
+      };
 
-    res.status(201).json({ review: newReview });
-  });
+      const reviews = [newReview, ...(await loadReviews())].slice(0, 50);
+      await writeJSON('reviews', reviews);
+      res.status(201).json({ review: newReview });
+    }),
+  );
 
-  app.post('/api/contact', (req, res) => {
-    const body = req.body ?? {};
-    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 100) : '';
-    const contact = typeof body.contact === 'string' ? body.contact.trim().slice(0, 120) : '';
-    const service = typeof body.service === 'string' ? body.service.trim().slice(0, 120) : '';
-    const message = typeof body.message === 'string' ? body.message.trim().slice(0, 2000) : '';
+  app.post(
+    '/api/contact',
+    wrap(async (req, res) => {
+      const body = req.body ?? {};
+      const name = str(body.name, 100);
+      const contact = str(body.contact, 120);
+      const service = str(body.service, 120);
+      const message = str(body.message, 2000);
+      const lang: 'ru' | 'kg' = body.lang === 'kg' ? 'kg' : 'ru';
 
-    if (!name || !contact || !message) {
-      res.status(400).json({ error: 'Missing required fields' });
-      return;
-    }
+      if (!name || !contact || !message) {
+        res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
 
-    recordEvent({
-      type: 'contact_submit',
-      path: '/#contact',
-      lang: body.lang === 'kg' ? 'kg' : 'ru',
-      meta: { service },
-      timestamp: new Date().toISOString(),
-    });
+      recordEvent({
+        type: 'contact_submit',
+        path: '/#contact',
+        lang,
+        meta: { service },
+        timestamp: new Date().toISOString(),
+      });
 
-    res.json({
-      ok: true,
-      deliveredVia: 'server-relay',
-      receivedAt: new Date().toISOString(),
-    });
-  });
+      const lead: LeadItem = {
+        id: `lead-${Date.now()}`,
+        name,
+        contact,
+        service,
+        message,
+        lang,
+        createdAt: new Date().toISOString(),
+      };
+      try {
+        const leads = [lead, ...(await loadLeads())].slice(0, 500);
+        await writeJSON('leads', leads);
+      } catch (err) {
+        console.error('Failed to store lead', err);
+      }
+
+      res.json({ ok: true, deliveredVia: 'server-relay', receivedAt: lead.createdAt });
+    }),
+  );
 
   app.post('/api/analytics/event', (req, res) => {
     const body = req.body ?? {};
-    const type = typeof body.type === 'string' ? body.type.slice(0, 60) : 'pageview';
-    const eventPath = typeof body.path === 'string' ? body.path.slice(0, 120) : '/';
-    const lang = body.lang === 'kg' ? 'kg' : 'ru';
-    const meta = body.meta && typeof body.meta === 'object' ? body.meta : undefined;
-
     recordEvent({
-      type,
-      path: eventPath,
-      lang,
-      meta,
+      type: typeof body.type === 'string' ? body.type.slice(0, 60) : 'pageview',
+      path: typeof body.path === 'string' ? body.path.slice(0, 120) : '/',
+      lang: body.lang === 'kg' ? 'kg' : 'ru',
+      meta: body.meta && typeof body.meta === 'object' ? body.meta : undefined,
       timestamp: new Date().toISOString(),
     });
-
     res.status(204).end();
   });
 
-  app.get('/api/analytics/summary', (_req, res) => {
-    const pageviews = analyticsStore.filter((e) => e.type === 'pageview').length;
-    const caseViews = analyticsStore.filter((e) => e.type === 'case_open').length;
-    const contacts = analyticsStore.filter((e) => e.type === 'contact_submit').length;
+  // ---------- Admin ----------
+  app.post('/api/admin/login', (req, res) => {
+    if (!process.env.ADMIN_PASSWORD) {
+      res.status(503).json({ error: 'ADMIN_PASSWORD is not configured on the server' });
+      return;
+    }
+    if (!passwordMatches(str(req.body?.password, 200))) {
+      res.status(401).json({ error: 'Wrong password' });
+      return;
+    }
+    res.json({ ok: true, storage: storageMode() });
+  });
+
+  app.put(
+    '/api/admin/content',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const content = req.body?.content;
+      if (!content || typeof content !== 'object' || Array.isArray(content)) {
+        res.status(400).json({ error: 'content must be an object' });
+        return;
+      }
+      await writeJSON('content', content);
+      res.json({ ok: true, savedAt: new Date().toISOString() });
+    }),
+  );
+
+  app.put(
+    '/api/admin/reviews',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const reviews = req.body?.reviews;
+      if (!Array.isArray(reviews)) {
+        res.status(400).json({ error: 'reviews must be an array' });
+        return;
+      }
+      await writeJSON('reviews', reviews.slice(0, 200));
+      res.json({ ok: true });
+    }),
+  );
+
+  app.get(
+    '/api/admin/leads',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      res.json({ leads: await loadLeads() });
+    }),
+  );
+
+  app.put(
+    '/api/admin/leads',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const leads = req.body?.leads;
+      if (!Array.isArray(leads)) {
+        res.status(400).json({ error: 'leads must be an array' });
+        return;
+      }
+      await writeJSON('leads', leads);
+      res.json({ ok: true });
+    }),
+  );
+
+  app.post(
+    '/api/admin/upload',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const contentType = str(req.body?.contentType, 60);
+      const data = typeof req.body?.data === 'string' ? req.body.data : '';
+      if (!isAllowedImageType(contentType) || !data) {
+        res.status(400).json({ error: 'Unsupported image' });
+        return;
+      }
+      const buffer = Buffer.from(data, 'base64');
+      if (buffer.length > 3 * 1024 * 1024) {
+        res.status(413).json({ error: 'Image too large (max 3 MB)' });
+        return;
+      }
+      const url = await saveImage(buffer, contentType);
+      res.json({ url });
+    }),
+  );
+
+  app.get('/api/analytics/summary', requireAdmin, (_req, res) => {
     res.json({
       totalEvents: analyticsStore.length,
-      pageviews,
-      caseViews,
-      contacts,
+      pageviews: analyticsStore.filter((e) => e.type === 'pageview').length,
+      caseViews: analyticsStore.filter((e) => e.type === 'case_open').length,
+      contacts: analyticsStore.filter((e) => e.type === 'contact_submit').length,
     });
   });
 

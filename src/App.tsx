@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { type CaseItem, type Language, UI_COPY } from './i18n/translations';
+import { type CaseItem, type Language } from './i18n/translations';
+import { useContent } from './content/ContentContext';
 import { initAnalytics, trackEvent } from './lib/analytics';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
@@ -16,9 +17,10 @@ import { ReviewsSection } from './components/ReviewsSection';
 import { ContactFooter } from './components/ContactFooter';
 
 export default function App() {
+  const content = useContent();
   const [lang, setLang] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('arsen_lang');
+      const saved = window.localStorage.getItem('doolot_lang');
       if (saved === 'kg' || saved === 'ru') return saved;
     }
     return 'ru';
@@ -34,15 +36,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem('arsen_lang', lang);
+    window.localStorage.setItem('doolot_lang', lang);
     document.documentElement.lang = lang === 'kg' ? 'ky' : 'ru';
-    document.title = UI_COPY[lang].seoTitle;
+    document.title = content.ui[lang].seoTitle;
 
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute('content', UI_COPY[lang].seoDescription);
+      metaDesc.setAttribute('content', content.ui[lang].seoDescription);
     }
-  }, [lang]);
+  }, [lang, content]);
 
   const handleChangeLang = (nextLang: Language) => {
     if (nextLang === lang) return;

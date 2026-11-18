@@ -1,6 +1,7 @@
 import { ArrowUpRight, Play } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type Language, UI_COPY } from '../i18n/translations';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { ShaderCanvas } from './ShaderCanvas';
 import { ResilientImage } from './ResilientImage';
 
@@ -9,7 +10,8 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ lang }: HeroSectionProps) {
-  const t = UI_COPY[lang].hero;
+  const content = useContent();
+  const t = content.ui[lang].hero;
 
   return (
     <section id="top" className="relative overflow-hidden border-b border-white/[0.08]">
@@ -67,9 +69,9 @@ export function HeroSection({ lang }: HeroSectionProps) {
           >
             <div className="bento-surface relative h-full min-h-[280px] overflow-hidden rounded-2xl">
               <ResilientImage
-                src="/src/assets/images/hero_ai_studio_1794990053430.jpg"
+                src={content.brand.heroImage}
                 alt={t.studioCaption}
-                titleFallback="ARSEN.AI Studio"
+                titleFallback={`${content.brand.logoText} Studio`}
                 priority
                 className="h-full w-full object-cover"
               />

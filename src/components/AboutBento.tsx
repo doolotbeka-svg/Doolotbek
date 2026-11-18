@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { MapPin, Sparkles, Terminal } from 'lucide-react';
-import {
-  AI_CREATOR_TOOLS,
-  type Language,
-  UI_COPY,
-  VIBE_CODING_TOOLS,
-} from '../i18n/translations';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { ResilientImage } from './ResilientImage';
 
 interface AboutBentoProps {
@@ -14,13 +10,14 @@ interface AboutBentoProps {
 }
 
 export function AboutBento({ lang }: AboutBentoProps) {
-  const t = UI_COPY[lang].about;
-  const [activeAiTool, setActiveAiTool] = useState(AI_CREATOR_TOOLS[0].name);
-  const [activeVibeTool, setActiveVibeTool] = useState(VIBE_CODING_TOOLS[0].name);
+  const content = useContent();
+  const t = content.ui[lang].about;
+  const [activeAiTool, setActiveAiTool] = useState(content.aiTools[0]?.name ?? '');
+  const [activeVibeTool, setActiveVibeTool] = useState(content.vibeTools[0]?.name ?? '');
 
-  const selectedAi = AI_CREATOR_TOOLS.find((x) => x.name === activeAiTool) || AI_CREATOR_TOOLS[0];
+  const selectedAi = content.aiTools.find((x) => x.name === activeAiTool) || content.aiTools[0];
   const selectedVibe =
-    VIBE_CODING_TOOLS.find((x) => x.name === activeVibeTool) || VIBE_CODING_TOOLS[0];
+    content.vibeTools.find((x) => x.name === activeVibeTool) || content.vibeTools[0];
 
   return (
     <section id="about" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
@@ -46,9 +43,9 @@ export function AboutBento({ lang }: AboutBentoProps) {
           <div className="grid h-full grid-cols-1 sm:grid-cols-12">
             <div className="relative min-h-[260px] sm:col-span-5">
               <ResilientImage
-                src="/src/assets/images/creator_portrait_1794990053313.jpg"
+                src={content.brand.portraitImage}
                 alt={t.whoHeadline}
-                titleFallback="Arsen Amanov"
+                titleFallback={content.brand.personName}
                 className="h-full w-full object-cover"
               />
               <div
@@ -97,7 +94,7 @@ export function AboutBento({ lang }: AboutBentoProps) {
 
             {/* Clean interactive typographic grid (no pill-badge clutter) */}
             <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-white/[0.08] pt-5 sm:grid-cols-3">
-              {AI_CREATOR_TOOLS.map((tool) => {
+              {content.aiTools.map((tool) => {
                 const isSelected = tool.name === activeAiTool;
                 return (
                   <button
@@ -152,7 +149,7 @@ export function AboutBento({ lang }: AboutBentoProps) {
             </div>
 
             <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-              {VIBE_CODING_TOOLS.map((tool) => {
+              {content.vibeTools.map((tool) => {
                 const isSelected = tool.name === activeVibeTool;
                 return (
                   <button

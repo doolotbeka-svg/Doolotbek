@@ -59,7 +59,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2026',
     client: 'Nomad Gear KG',
     tools: ['Midjourney v7', 'Runway Gen-4', 'Kling 2.0', 'Suno v4'],
-    demoUrl: 'https://behance.net/arsen-ai',
+    demoUrl: 'https://behance.net/doolot-ai',
     ru: {
       title: 'Nomad Horizon: Тизер для экипировки',
       categoryLabel: 'AI-Видео и Арт',
@@ -84,7 +84,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2026',
     client: 'KyrgyzPay Studio',
     tools: ['Cursor', 'Claude', 'Next.js', 'Tailwind CSS'],
-    demoUrl: 'https://github.com/arsen-ai-kg',
+    demoUrl: 'https://github.com/doolotbeka-svg',
     ru: {
       title: 'KyrgyzPay: Финтех-аналитика и MVP',
       categoryLabel: 'Веб и Приложения',
@@ -109,7 +109,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2026',
     client: 'Ala-Too Atelier',
     tools: ['Midjourney', 'Sora', 'Runway', 'ElevenLabs'],
-    demoUrl: 'https://behance.net/arsen-ai',
+    demoUrl: 'https://behance.net/doolot-ai',
     ru: {
       title: 'Shyrdak Futurism: Lookbook кампания',
       categoryLabel: 'AI-Видео и Арт',
@@ -134,7 +134,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2026',
     client: 'Salam AI Lab',
     tools: ['v0', 'Cursor', 'React', 'ElevenLabs API'],
-    demoUrl: 'https://github.com/arsen-ai-kg',
+    demoUrl: 'https://github.com/doolotbeka-svg',
     ru: {
       title: 'Salam Voice: Веб-студия ИИ-озвучки',
       categoryLabel: 'Веб и Приложения',
@@ -159,7 +159,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2025',
     client: 'Oimo Roasters',
     tools: ['Midjourney', 'Kling', 'Runway', 'Suno'],
-    demoUrl: 'https://behance.net/arsen-ai',
+    demoUrl: 'https://behance.net/doolot-ai',
     ru: {
       title: 'Oimo Cold Brew: Коммерческий 3D/AI-ролик',
       categoryLabel: 'AI-Видео и Арт',
@@ -184,7 +184,7 @@ export const CASES_DATA: CaseItem[] = [
     year: '2025',
     client: 'PeakTrail KG',
     tools: ['Lovable', 'Cursor', 'React', 'Tailwind CSS'],
-    demoUrl: 'https://github.com/arsen-ai-kg',
+    demoUrl: 'https://github.com/doolotbeka-svg',
     ru: {
       title: 'PeakTrail: AI-планировщик горных маршрутов',
       categoryLabel: 'Веб и Приложения',
@@ -280,9 +280,92 @@ export const SERVICES_DATA: ServiceItem[] = [
   },
 ];
 
-export const UI_COPY = {
+export interface UiCopy {
+  seoTitle: string;
+  seoDescription: string;
+  nav: { about: string; cases: string; services: string; reviews: string; contact: string };
+  hero: {
+    kicker: string;
+    headline: string;
+    subtitle: string;
+    ctaPrimary: string;
+    ctaSecondary: string;
+    studioCaption: string;
+    metrics: { value: string; label: string }[];
+  };
+  about: {
+    sectionLabel: string;
+    sectionTitle: string;
+    whoTitle: string;
+    whoHeadline: string;
+    whoBody: string;
+    locationLine: string;
+    creatorTitle: string;
+    creatorSubtitle: string;
+    vibeTitle: string;
+    vibeSubtitle: string;
+  };
+  portfolio: {
+    sectionLabel: string;
+    sectionTitle: string;
+    filters: { all: string; videoArt: string; webApps: string };
+    detailsBtn: string;
+    modal: {
+      challenge: string;
+      solution: string;
+      result: string;
+      toolsLabel: string;
+      visitDemo: string;
+      discussSimilar: string;
+      close: string;
+    };
+  };
+  services: { sectionLabel: string; sectionTitle: string; timelineLabel: string };
+  reviews: {
+    sectionLabel: string;
+    sectionTitle: string;
+    subtitle: string;
+    formTitle: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    roleLabel: string;
+    rolePlaceholder: string;
+    ratingLabel: string;
+    textLabel: string;
+    textPlaceholder: string;
+    submitBtn: string;
+    submitting: string;
+    successMsg: string;
+    errorMsg: string;
+  };
+  contact: {
+    sectionLabel: string;
+    headline: string;
+    subtitle: string;
+    form: {
+      nameLabel: string;
+      namePlaceholder: string;
+      contactLabel: string;
+      contactPlaceholder: string;
+      serviceLabel: string;
+      serviceOptions: string[];
+      messageLabel: string;
+      messagePlaceholder: string;
+      submitBtn: string;
+      sending: string;
+      successTitle: string;
+      successBody: string;
+      errorBody: string;
+    };
+    directTitle: string;
+    directSubtitle: string;
+  };
+  footer: { rights: string; tagline: string };
+}
+
+export const UI_COPY: { ru: UiCopy; kg: UiCopy } = {
   ru: {
-    seoTitle: 'Arsen Amanov — AI-Креатор и Vibe Coder | Визуал будущего и MVP',
+    seoTitle: 'Doolot — AI-Креатор и Vibe Coder | Визуал будущего и MVP',
     seoDescription: 'Портфолио AI-креатора и вайб-кодера из Кыргызстана: генерация AI-видео, разработка веб-продуктов и MVP за считанные дни.',
     nav: {
       about: 'Обо мне',
@@ -386,12 +469,12 @@ export const UI_COPY = {
       directSubtitle: 'Отвечаю в течение дня по времени Бишкека (UTC+6).',
     },
     footer: {
-      rights: '© 2026 Arsen Amanov. AI-креатор и Vibe Coder, Бишкек.',
+      rights: '© 2026 Doolot. AI-креатор и Vibe Coder, Бишкек.',
       tagline: 'Создано с помощью вайб-кодинга и генеративного ИИ.',
     },
   },
   kg: {
-    seoTitle: 'Arsen Amanov — AI-Креатор жана Vibe Coder | Келечектин визуалы жана MVP',
+    seoTitle: 'Doolot — AI-Креатор жана Vibe Coder | Келечектин визуалы жана MVP',
     seoDescription: 'Кыргызстандагы AI-креатор жана вайб-кодердин портфолиосу: AI-видеолорду жаратуу, веб-продукттарды жана MVPлерди тез иштеп чыгуу.',
     nav: {
       about: 'Мен жөнүндө',
@@ -495,8 +578,8 @@ export const UI_COPY = {
       directSubtitle: 'Бишкек убактысы (UTC+6) боюнча күн ичинде жооп берем.',
     },
     footer: {
-      rights: '© 2026 Arsen Amanov. AI-креатор жана Vibe Coder, Бишкек.',
+      rights: '© 2026 Doolot. AI-креатор жана Vibe Coder, Бишкек.',
       tagline: 'Вайб-кодинг жана генеративдик ЖИнин жардамы менен жасалган.',
     },
   },
-} as const;
+};

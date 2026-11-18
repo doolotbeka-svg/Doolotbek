@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { CheckCircle2, Send } from 'lucide-react';
-import { type Language, UI_COPY } from '../i18n/translations';
+import { CheckCircle2, Link2, Send } from 'lucide-react';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { sendContactMessage } from '../lib/emailjs';
 
 interface ContactFooterProps {
@@ -9,11 +10,12 @@ interface ContactFooterProps {
   onChangeLang: (lang: Language) => void;
 }
 
-const SOCIAL_LINKS = [
+/** Icon set for known networks; the links themselves come from editable content. */
+const SOCIAL_ICONS = [
   {
     name: 'Telegram',
-    handle: '@arsen_ai_kg',
-    href: 'https://t.me/arsen_ai_kg',
+    handle: '@doolot_ai',
+    href: 'https://t.me/doolot_ai',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
         <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
@@ -32,8 +34,8 @@ const SOCIAL_LINKS = [
   },
   {
     name: 'Instagram',
-    handle: '@arsen.ai.kg',
-    href: 'https://instagram.com/arsen.ai.kg',
+    handle: '@doolot.ai',
+    href: 'https://instagram.com/doolot.ai',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
         <path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
@@ -42,8 +44,8 @@ const SOCIAL_LINKS = [
   },
   {
     name: 'Behance',
-    handle: 'behance.net/arsen-ai',
-    href: 'https://behance.net/arsen-ai',
+    handle: 'behance.net/doolot-ai',
+    href: 'https://behance.net/doolot-ai',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
         <path d="M22 7h-7v2h7V7zm-3.5 3.5c-2.5 0-4.2 1.8-4.2 4.5s1.6 4.5 4.3 4.5c2 0 3.5-1 4-2.6h-2.1c-.3.6-.9.9-1.8.9-1.1 0-1.9-.6-2.1-1.9h6.1c.1-.3.1-.7.1-1 0-2.7-1.7-4.4-4.3-4.4zm-1.9 3.6c.2-1.1.9-1.8 1.9-1.8s1.7.6 1.9 1.8h-3.8zM7.6 11.4c1-.4 1.6-1.2 1.6-2.3 0-2-1.4-3-4-3H1v12.8h4.5c2.7 0 4.3-1.2 4.3-3.5 0-1.5-.8-2.6-2.2-3zM3.4 8h1.8c1 0 1.6.4 1.6 1.2 0 .8-.6 1.2-1.6 1.2H3.4V8zm2 8.9H3.4v-3.2h2c1.2 0 1.9.5 1.9 1.6 0 1.1-.7 1.6-1.9 1.6z" />
@@ -52,8 +54,8 @@ const SOCIAL_LINKS = [
   },
   {
     name: 'GitHub',
-    handle: 'github.com/arsen-ai-kg',
-    href: 'https://github.com/arsen-ai-kg',
+    handle: 'github.com/doolotbeka-svg',
+    href: 'https://github.com/doolotbeka-svg',
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
         <path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" />
@@ -62,14 +64,24 @@ const SOCIAL_LINKS = [
   },
 ];
 
+function iconFor(name: string) {
+  const key = name.trim().toLowerCase();
+  return (
+    SOCIAL_ICONS.find((s) => s.name.toLowerCase() === key)?.icon ?? (
+      <Link2 className="h-5 w-5" aria-hidden="true" />
+    )
+  );
+}
+
 export function ContactFooter({
   lang,
   preselectedService,
   onChangeLang,
 }: ContactFooterProps) {
-  const t = UI_COPY[lang].contact;
-  const f = UI_COPY[lang].footer;
-  const nav = UI_COPY[lang].nav;
+  const content = useContent();
+  const t = content.ui[lang].contact;
+  const f = content.ui[lang].footer;
+  const nav = content.ui[lang].nav;
 
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
@@ -138,7 +150,7 @@ export function ContactFooter({
               <p className="mt-1 text-xs text-white/55">{t.directSubtitle}</p>
 
               <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {SOCIAL_LINKS.map((item) => (
+                {content.socials.map((item) => (
                   <a
                     key={item.name}
                     href={item.href}
@@ -146,7 +158,7 @@ export function ContactFooter({
                     rel="noopener noreferrer"
                     className="bento-surface bento-surface-hover flex min-h-[48px] items-center gap-3 rounded-xl px-4 py-2.5 text-white/85 hover:text-white focus-visible:outline-2 focus-visible:outline-[#00F0C8]"
                   >
-                    <span className="text-[#00F0C8]">{item.icon}</span>
+                    <span className="text-[#00F0C8]">{iconFor(item.name)}</span>
                     <div className="min-w-0">
                       <div className="text-xs font-semibold text-white">
                         {item.name}

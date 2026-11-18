@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type Language, UI_COPY } from '../i18n/translations';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 
 interface HeaderProps {
   lang: Language;
@@ -9,8 +10,9 @@ interface HeaderProps {
 }
 
 export function Header({ lang, onChangeLang }: HeaderProps) {
+  const content = useContent();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const t = UI_COPY[lang].nav;
+  const t = content.ui[lang].nav;
 
   const navLinks = [
     { href: '#about', label: t.about },
@@ -28,7 +30,7 @@ export function Header({ lang, onChangeLang }: HeaderProps) {
           href="#top"
           className="font-display whitespace-nowrap shrink-0 text-base font-bold tracking-tight text-white transition-colors hover:text-[#00F0C8] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8B5CF6]"
         >
-          ARSEN.AI
+          {content.brand.logoText}
         </a>
 
         {/* Zone 2: Single-line Anchor Navigation */}

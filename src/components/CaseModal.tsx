@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { ArrowUpRight, ExternalLink, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { type CaseItem, type Language, UI_COPY } from '../i18n/translations';
+import { type CaseItem, type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { ResilientImage } from './ResilientImage';
 
 interface CaseModalProps {
@@ -12,7 +13,8 @@ interface CaseModalProps {
 }
 
 export function CaseModal({ item, lang, onClose, onDiscussProject }: CaseModalProps) {
-  const t = UI_COPY[lang].portfolio.modal;
+  const site = useContent();
+  const t = site.ui[lang].portfolio.modal;
 
   useEffect(() => {
     if (!item) return;

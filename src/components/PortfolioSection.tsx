@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CASES_DATA, type CaseItem, type Language, UI_COPY } from '../i18n/translations';
+import { type CaseItem, type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { ResilientImage } from './ResilientImage';
 import { trackEvent } from '../lib/analytics';
 
@@ -13,11 +14,12 @@ interface PortfolioSectionProps {
 }
 
 export function PortfolioSection({ lang, onOpenCase }: PortfolioSectionProps) {
+  const content = useContent();
   const [filter, setFilter] = useState<FilterType>('all');
-  const t = UI_COPY[lang].portfolio;
+  const t = content.ui[lang].portfolio;
 
   const filteredCases =
-    filter === 'all' ? CASES_DATA : CASES_DATA.filter((c) => c.category === filter);
+    filter === 'all' ? content.cases : content.cases.filter((c) => c.category === filter);
 
   const filterTabs: { id: FilterType; label: string }[] = [
     { id: 'all', label: t.filters.all },

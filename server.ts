@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { createApp } from './server/app.ts';
+import { LOCAL_UPLOADS_DIR } from './server/storage.ts';
 
 dotenv.config();
 
@@ -14,6 +15,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 async function startServer() {
   const app = createApp();
+  // Locally uploaded admin images (on Vercel they live in Vercel Blob instead).
+  app.use('/uploads', express.static(LOCAL_UPLOADS_DIR));
 
   const isProd = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');

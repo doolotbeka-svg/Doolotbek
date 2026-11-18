@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { CheckCircle2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type Language, UI_COPY } from '../i18n/translations';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 import { trackEvent } from '../lib/analytics';
 
 export interface ReviewItem {
@@ -21,7 +22,8 @@ interface ReviewsSectionProps {
 }
 
 export function ReviewsSection({ lang }: ReviewsSectionProps) {
-  const t = UI_COPY[lang].reviews;
+  const content = useContent();
+  const t = content.ui[lang].reviews;
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
 

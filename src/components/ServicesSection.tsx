@@ -1,6 +1,7 @@
 import { ArrowUpRight, Check } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type Language, SERVICES_DATA, UI_COPY } from '../i18n/translations';
+import { type Language } from '../i18n/translations';
+import { useContent } from '../content/ContentContext';
 
 interface ServicesSectionProps {
   lang: Language;
@@ -8,7 +9,8 @@ interface ServicesSectionProps {
 }
 
 export function ServicesSection({ lang, onSelectService }: ServicesSectionProps) {
-  const t = UI_COPY[lang].services;
+  const content = useContent();
+  const t = content.ui[lang].services;
 
   return (
     <section id="services" className="border-t border-white/[0.08] py-16 sm:py-24">
@@ -23,7 +25,7 @@ export function ServicesSection({ lang, onSelectService }: ServicesSectionProps)
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {SERVICES_DATA.map((service, index) => {
+          {content.services.map((service, index) => {
             const copy = lang === 'ru' ? service.ru : service.kg;
             return (
               <motion.article
